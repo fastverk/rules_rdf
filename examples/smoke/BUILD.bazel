@@ -1,0 +1,52 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_rdf//rdf:contract_test.bzl", "rdf_plugin_contract_test")
+load("@rules_rdf//rdf:dataset.bzl", "rdf_dataset")
+load("@rules_rdf//rdf:toolchains.bzl", "sparql_engine_toolchain")
+load("@rules_rdf//sparql:defs.bzl", "sparql_query_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# The no-op plugin lives here in the smoke example because it's
+# not a real implementation; rules_jena (or rules_rdflib, etc.)
+# ships the real ones. Validates the rules_rdf wiring end-to-end.
+py_binary(
+    name = "no_op_sparql",
+    srcs = ["no_op_sparql.py"],
+    main = "no_op_sparql.py",
+)
+
+sparql_engine_toolchain(
+    name = "no_op_sparql_toolchain",
+    binary = ":no_op_sparql",
+)
+
+toolchain(
+    name = "no_op_sparql_toolchain_def",
+    toolchain = ":no_op_sparql_toolchain",
+    toolchain_type = "@rules_rdf//rdf:sparql_engine_toolchain_type",
+)
+
+# rdf_dataset wraps the sample turtle file as an RdfDatasetInfo
+# provider that the test rule resolves.
+rdf_dataset(
+    name = "sample",
+    srcs = ["sample.ttl"],
+    in_format = "turtle",
+)
+
+# End-to-end: rdf_dataset → sparql_query_test → resolved
+# no-op toolchain → plugin invocation → exit 0.
+sparql_query_test(
+    name = "zero_row_gate_smoke",
+    dataset = ":sample",
+    query = "query.rq",
+)
+
+# The conformance driver itself — runs the 4 contract scenarios
+# against the no-op plugin. Failing this means we broke the
+# contract test rule, not the plugin.
+rdf_plugin_contract_test(
+    name = "no_op_sparql_conforms",
+    plugin = ":no_op_sparql",
+    toolchain_type = "sparql_engine",
+)

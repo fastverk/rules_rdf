@@ -1,0 +1,9 @@
+PREFIX ex: <http://example.org/>
+
+# Trivial zero-row gate: there exist no triples where the
+# subject equals ex:nothing. Used to validate the end-to-end
+# sparql_query_test wiring against the no_op_sparql plugin.
+SELECT ?s ?p ?o WHERE {
+    ?s ?p ?o .
+    FILTER (?s = ex:nothing)
+}

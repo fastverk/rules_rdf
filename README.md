@@ -7,12 +7,43 @@ conversion, and reasoning — and leaves the engine choice to a
 concrete toolchain registered by the consumer. The host repo only
 registers toolchains; the rules themselves are engine-agnostic.
 
-## Status: v0.0.1 — scaffold
+## Status: v0.1.0
 
-Nothing ships yet. This release is the module skeleton + design docs.
-The first usable surface (toolchain type definitions, `_no_op`
-default rules, plugin contract test driver) lands in v0.1.0. See
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+What ships:
+
+- Four `toolchain_type` declarations in `//rdf:` (`sparql_engine`,
+  `rdf_validator`, `rdf_serializer`, `rdf_reasoner`).
+- One `rdf_*_toolchain` rule per type for plugin registration
+  (`//rdf:toolchains.bzl`), each carrying the binary + its runfiles
+  so py_binary / java_binary plugins resolve cleanly inside the
+  Bazel sandbox.
+- Five providers (`SparqlEngineToolchainInfo`,
+  `RdfValidatorToolchainInfo`, `RdfSerializerToolchainInfo`,
+  `RdfReasonerToolchainInfo`, `RdfDatasetInfo`).
+- `rdf_dataset(name, srcs, in_format)` — bundle RDF files into a
+  format-tagged provider for downstream rules.
+- `sparql_query_test(name, dataset, query)` — zero-row SPARQL gate.
+  The workhorse rule; resolves `sparql_engine_toolchain_type`.
+- `rdf_validate_test(name, dataset, shapes, severity)` — SHACL gate
+  via `rdf_validator_toolchain_type`.
+- `rdf_plugin_contract_test(name, plugin, toolchain_type)` — runs
+  the conformance driver (Python) against any plugin executable.
+  Four scenarios: `valid_minimal`, `malformed_input`, `unknown_flag`,
+  `determinism`.
+- Plugin contract finalized at
+  [`rdf/plugin_contract.md`](rdf/plugin_contract.md) (v1).
+- Stardoc-generated reference in `docs/` for every public-API file.
+- End-to-end smoke test in `examples/smoke/` — a no-op Python SPARQL
+  engine registered as a toolchain, exercised through both
+  `sparql_query_test` and `rdf_plugin_contract_test`. Both pass.
+
+Deferred to v0.2:
+
+- `sparql_query_run`, `rdf_transform`, `rdf_reason` (need wider
+  toolchain coverage; rules_jena unblocks them).
+- ShEx support in `rdf_validate_test` (the toolchain contract leaves
+  room via a future `--shapes-language` flag).
+- Cross-format dataset support (mixed `in_format` in one dataset).
 
 ## Architecture
 
@@ -130,7 +161,7 @@ common --registry=https://bcr.bazel.build/
 `MODULE.bazel`:
 
 ```python
-bazel_dep(name = "rules_rdf", version = "0.0.1")
+bazel_dep(name = "rules_rdf", version = "0.1.0")
 ```
 
 No toolchains are registered by default — pull in a concrete

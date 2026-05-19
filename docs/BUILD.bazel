@@ -1,0 +1,69 @@
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@rules_jsonschema//util:write_source_files.bzl", "write_source_files")
+load("@stardoc//stardoc:stardoc.bzl", "stardoc")
+
+package(default_visibility = ["//visibility:public"])
+
+# Reference docs for the public-API .bzl files. Each is gated by
+# a diff_test; CI fails on drift between docstrings and committed
+# markdown. `bazel run //docs:update` writes back.
+stardoc(
+    name = "providers_doc",
+    out = "providers.md.generated",
+    input = "//rdf:providers.bzl",
+    deps = ["//rdf:providers"],
+)
+
+stardoc(
+    name = "toolchains_doc",
+    out = "toolchains.md.generated",
+    input = "//rdf:toolchains.bzl",
+    deps = ["//rdf:toolchains"],
+)
+
+stardoc(
+    name = "dataset_doc",
+    out = "dataset.md.generated",
+    input = "//rdf:dataset.bzl",
+    deps = ["//rdf:dataset"],
+)
+
+stardoc(
+    name = "contract_test_doc",
+    out = "contract_test.md.generated",
+    input = "//rdf:contract_test.bzl",
+    deps = ["//rdf:contract_test"],
+)
+
+stardoc(
+    name = "sparql_doc",
+    out = "sparql.md.generated",
+    input = "//sparql:defs.bzl",
+    deps = ["//sparql:defs"],
+)
+
+stardoc(
+    name = "validate_doc",
+    out = "validate.md.generated",
+    input = "//validate:defs.bzl",
+    deps = ["//validate:defs"],
+)
+
+diff_test(name = "providers_doc_up_to_date", file1 = "providers.md", file2 = ":providers_doc")
+diff_test(name = "toolchains_doc_up_to_date", file1 = "toolchains.md", file2 = ":toolchains_doc")
+diff_test(name = "dataset_doc_up_to_date", file1 = "dataset.md", file2 = ":dataset_doc")
+diff_test(name = "contract_test_doc_up_to_date", file1 = "contract_test.md", file2 = ":contract_test_doc")
+diff_test(name = "sparql_doc_up_to_date", file1 = "sparql.md", file2 = ":sparql_doc")
+diff_test(name = "validate_doc_up_to_date", file1 = "validate.md", file2 = ":validate_doc")
+
+write_source_files(
+    name = "update",
+    files = {
+        "providers.md": ":providers_doc",
+        "toolchains.md": ":toolchains_doc",
+        "dataset.md": ":dataset_doc",
+        "contract_test.md": ":contract_test_doc",
+        "sparql.md": ":sparql_doc",
+        "validate.md": ":validate_doc",
+    },
+)

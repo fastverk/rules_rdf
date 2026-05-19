@@ -1,0 +1,37 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# One toolchain type per RDF operation. Plugins implement and
+# register the binary backing each type independently — a consumer
+# can mix rules_jena's SPARQL engine with another vendor's
+# validator, etc.
+toolchain_type(name = "sparql_engine_toolchain_type")
+toolchain_type(name = "rdf_validator_toolchain_type")
+toolchain_type(name = "rdf_serializer_toolchain_type")
+toolchain_type(name = "rdf_reasoner_toolchain_type")
+
+# Stardoc / bzl_library plumbing for the public API surface.
+bzl_library(
+    name = "providers",
+    srcs = ["providers.bzl"],
+)
+
+bzl_library(
+    name = "toolchains",
+    srcs = ["toolchains.bzl"],
+    deps = [":providers"],
+)
+
+bzl_library(
+    name = "dataset",
+    srcs = ["dataset.bzl"],
+    deps = [":providers"],
+)
+
+bzl_library(
+    name = "contract_test",
+    srcs = ["contract_test.bzl"],
+)
+
+exports_files(["plugin_contract.md"])

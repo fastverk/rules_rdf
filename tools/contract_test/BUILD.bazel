@@ -1,0 +1,9 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+py_binary(
+    name = "contract_test",
+    srcs = ["contract_test.py"],
+    main = "contract_test.py",
+)
