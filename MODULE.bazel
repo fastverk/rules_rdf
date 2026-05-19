@@ -3,7 +3,7 @@
 # implementations live in sibling repos like rules_jena.
 module(
     name = "rules_rdf",
-    version = "0.1.0",
+    version = "0.2.0",
 )
 
 bazel_dep(name = "platforms", version = "1.0.0")
@@ -22,11 +22,14 @@ bazel_dep(name = "stardoc", version = "0.7.2", dev_dependency = True)
 # Used by docs/BUILD.bazel for the stardoc → markdown commit-back.
 bazel_dep(name = "rules_jsonschema", version = "0.2.0", dev_dependency = True)
 
-# Examples register a no-op SPARQL engine; reuse its toolchain in
-# the smoke tests so the contract pipeline works end-to-end
-# without depending on rules_jena.
+# Examples register no-op plugins for every rules_rdf toolchain
+# type. Lets the smoke tests exercise the contract pipeline end-to-end
+# without depending on a concrete RDF backend (e.g. rules_jena).
 register_toolchains(
     "//examples/smoke:no_op_sparql_toolchain_def",
+    "//examples/smoke:no_op_validator_toolchain_def",
+    "//examples/smoke:no_op_serializer_toolchain_def",
+    "//examples/smoke:no_op_reasoner_toolchain_def",
     dev_dependency = True,
 )
 

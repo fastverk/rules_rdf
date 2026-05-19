@@ -4,6 +4,25 @@ All notable changes to rules_rdf. The format is loosely
 [Keep a Changelog](https://keepachangelog.com/) — version headers
 mirror the published bazel-registry entries.
 
+## 0.2.0 — build-action rules + binary RDF formats
+
+- `rdf_reason` (`//reason:defs.bzl`) — build-action rule that
+  runs the registered `rdf_reasoner` toolchain over a base
+  dataset; emits the derived-triples Turtle file. Provides a
+  fresh `RdfDatasetInfo` so consumers can chain
+  reason → validate → query.
+- `rdf_transform` (`//transform:defs.bzl`) — convert between
+  serializations via the registered `rdf_serializer` toolchain.
+  Output extension auto-selected from `out_format`.
+- Binary RDF formats added to `RDF_FORMATS`: `rdfthrift` (`.rt`)
+  and `rdfprotobuf` (`.rpb` / `.bin`). Apache Jena's binary
+  serializations — useful as cached intermediate forms.
+- Smoke fixtures rewritten as bash plugins (no py_binary
+  bootstrap to stage in action runfiles trees). Four no-op
+  plugins cover every toolchain type; `bazel test //...` runs
+  14/14 (8 stardoc diff_tests + 4 conformance + 4 rule smokes).
+- Stardoc for `reason/defs.bzl` + `transform/defs.bzl`.
+
 ## 0.1.0 — first usable surface
 
 - Four `toolchain_type`s under `//rdf:`: `sparql_engine`,

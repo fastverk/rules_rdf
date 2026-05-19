@@ -1,24 +1,34 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_rdf//rdf:contract_test.bzl", "rdf_plugin_contract_test")
 load("@rules_rdf//rdf:dataset.bzl", "rdf_dataset")
-load("@rules_rdf//rdf:toolchains.bzl", "sparql_engine_toolchain")
+load(
+    "@rules_rdf//rdf:toolchains.bzl",
+    "rdf_reasoner_toolchain",
+    "rdf_serializer_toolchain",
+    "rdf_validator_toolchain",
+    "sparql_engine_toolchain",
+)
+load("@rules_rdf//reason:defs.bzl", "rdf_reason")
 load("@rules_rdf//sparql:defs.bzl", "sparql_query_test")
+load("@rules_rdf//transform:defs.bzl", "rdf_transform")
+load("@rules_rdf//validate:defs.bzl", "rdf_validate_test")
 
 package(default_visibility = ["//visibility:public"])
 
-# The no-op plugin lives here in the smoke example because it's
-# not a real implementation; rules_jena (or rules_rdflib, etc.)
-# ships the real ones. Validates the rules_rdf wiring end-to-end.
-py_binary(
-    name = "no_op_sparql",
-    srcs = ["no_op_sparql.py"],
-    main = "no_op_sparql.py",
-)
+# No-op plugins for every rules_rdf toolchain type. Bash scripts —
+# not py_binary — so they have no stage2 bootstrap to stage in
+# action runfiles trees. Real implementations (rules_jena's jena_*)
+# replace these for production.
 
-sparql_engine_toolchain(
-    name = "no_op_sparql_toolchain",
-    binary = ":no_op_sparql",
-)
+sh_binary(name = "no_op_sparql", srcs = ["no_op_sparql.sh"])
+sh_binary(name = "no_op_validator", srcs = ["no_op_validator.sh"])
+sh_binary(name = "no_op_serializer", srcs = ["no_op_serializer.sh"])
+sh_binary(name = "no_op_reasoner", srcs = ["no_op_reasoner.sh"])
+
+sparql_engine_toolchain(name = "no_op_sparql_toolchain", binary = ":no_op_sparql")
+rdf_validator_toolchain(name = "no_op_validator_toolchain", binary = ":no_op_validator")
+rdf_serializer_toolchain(name = "no_op_serializer_toolchain", binary = ":no_op_serializer")
+rdf_reasoner_toolchain(name = "no_op_reasoner_toolchain", binary = ":no_op_reasoner")
 
 toolchain(
     name = "no_op_sparql_toolchain_def",
@@ -26,27 +36,79 @@ toolchain(
     toolchain_type = "@rules_rdf//rdf:sparql_engine_toolchain_type",
 )
 
-# rdf_dataset wraps the sample turtle file as an RdfDatasetInfo
-# provider that the test rule resolves.
+toolchain(
+    name = "no_op_validator_toolchain_def",
+    toolchain = ":no_op_validator_toolchain",
+    toolchain_type = "@rules_rdf//rdf:rdf_validator_toolchain_type",
+)
+
+toolchain(
+    name = "no_op_serializer_toolchain_def",
+    toolchain = ":no_op_serializer_toolchain",
+    toolchain_type = "@rules_rdf//rdf:rdf_serializer_toolchain_type",
+)
+
+toolchain(
+    name = "no_op_reasoner_toolchain_def",
+    toolchain = ":no_op_reasoner_toolchain",
+    toolchain_type = "@rules_rdf//rdf:rdf_reasoner_toolchain_type",
+)
+
+# Source data — a 1-triple Turtle file every smoke target chains off.
 rdf_dataset(
     name = "sample",
     srcs = ["sample.ttl"],
     in_format = "turtle",
 )
 
-# End-to-end: rdf_dataset → sparql_query_test → resolved
-# no-op toolchain → plugin invocation → exit 0.
+# -- End-to-end smokes ---------------------------------------------------------
+
 sparql_query_test(
     name = "zero_row_gate_smoke",
     dataset = ":sample",
     query = "query.rq",
 )
 
-# The conformance driver itself — runs the 4 contract scenarios
-# against the no-op plugin. Failing this means we broke the
-# contract test rule, not the plugin.
+rdf_validate_test(
+    name = "validate_smoke",
+    dataset = ":sample",
+    shapes = "shapes.ttl",
+)
+
+rdf_transform(
+    name = "transform_smoke",
+    dataset = ":sample",
+    out_format = "ntriples",
+)
+
+rdf_reason(
+    name = "reason_smoke",
+    base = ":sample",
+    profile = "rdfs",
+)
+
+# -- Conformance gates ---------------------------------------------------------
+
 rdf_plugin_contract_test(
     name = "no_op_sparql_conforms",
     plugin = ":no_op_sparql",
     toolchain_type = "sparql_engine",
+)
+
+rdf_plugin_contract_test(
+    name = "no_op_validator_conforms",
+    plugin = ":no_op_validator",
+    toolchain_type = "rdf_validator",
+)
+
+rdf_plugin_contract_test(
+    name = "no_op_serializer_conforms",
+    plugin = ":no_op_serializer",
+    toolchain_type = "rdf_serializer",
+)
+
+rdf_plugin_contract_test(
+    name = "no_op_reasoner_conforms",
+    plugin = ":no_op_reasoner",
+    toolchain_type = "rdf_reasoner",
 )

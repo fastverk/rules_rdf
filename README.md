@@ -7,7 +7,33 @@ conversion, and reasoning — and leaves the engine choice to a
 concrete toolchain registered by the consumer. The host repo only
 registers toolchains; the rules themselves are engine-agnostic.
 
-## Status: v0.1.0
+## Status: v0.2.0
+
+What v0.2 adds on top of v0.1.0:
+
+- **`rdf_reason`** (`//reason:defs.bzl`) — build-action rule that
+  runs the registered `rdf_reasoner` toolchain over a base dataset
+  and emits the derived-triples graph (Turtle) as a file artifact.
+  Provides a fresh `RdfDatasetInfo` so consumers can chain
+  reason → validate → query. Supports built-in profiles
+  (`rdfs`, `owl-rl`, `owl-mini`, `owl-micro`) + `custom` with a
+  Jena rule file.
+- **`rdf_transform`** (`//transform:defs.bzl`) — converts a dataset
+  between serializations via the registered `rdf_serializer`
+  toolchain. Output extension follows the target format.
+- **Binary RDF support** — `rdfthrift` and `rdfprotobuf` added to
+  `RDF_FORMATS` (Apache Jena's binary serializations). Useful as
+  cached intermediate forms; significantly faster to parse than
+  Turtle for large datasets. Consumed by `rdf_transform`'s
+  `out_format` + accepted by `rdf_dataset`'s `srcs` via `.rt` /
+  `.rpb` / `.bin` extensions.
+- **Four no-op smoke plugins** (bash) covering every toolchain
+  type. `bazel test //...` runs 14/14 — every public rule
+  exercised end-to-end without needing rules_jena.
+
+---
+
+## v0.1.0 status (still shipped):
 
 What ships:
 
@@ -161,7 +187,7 @@ common --registry=https://bcr.bazel.build/
 `MODULE.bazel`:
 
 ```python
-bazel_dep(name = "rules_rdf", version = "0.1.0")
+bazel_dep(name = "rules_rdf", version = "0.2.0")
 ```
 
 No toolchains are registered by default — pull in a concrete

@@ -18,6 +18,14 @@ load(":providers.bzl", "RdfDatasetInfo")
 
 # Vocabulary lives here so the rules + the plugin contract stay
 # in sync; if you add a format, add it everywhere.
+#
+# `rdfthrift` and `rdfprotobuf` are Apache Jena's binary RDF
+# serializations — significantly smaller and faster to parse than
+# Turtle / N-Triples for large datasets. They make sense as
+# `rdf_transform` outputs (cached intermediate forms) and as
+# inputs where the producer is itself a Jena tool. Plugins that
+# don't support them must reject them with a clear error per the
+# contract's "rejects unknown flags" discipline.
 RDF_FORMATS = [
     "turtle",
     "ntriples",
@@ -25,6 +33,8 @@ RDF_FORMATS = [
     "trig",
     "jsonld",
     "rdfxml",
+    "rdfthrift",
+    "rdfprotobuf",
 ]
 
 def _rdf_dataset_impl(ctx):
@@ -40,7 +50,12 @@ rdf_dataset = rule(
     implementation = _rdf_dataset_impl,
     attrs = {
         "srcs": attr.label_list(
-            allow_files = [".ttl", ".nt", ".nq", ".trig", ".jsonld", ".rdf", ".xml"],
+            allow_files = [
+                ".ttl", ".nt", ".nq", ".trig", ".jsonld",
+                ".rdf", ".xml",
+                ".rt",  # Apache Jena RDF Thrift binary
+                ".rpb", ".bin",  # Apache Jena RDF Protobuf binary
+            ],
             mandatory = True,
             doc = "RDF source files. Concatenated in lexicographic " +
                   "order by consuming rules before being piped to the " +

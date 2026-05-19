@@ -1,0 +1,6 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+# Trivial conformant shape — no constraints, so the no-op validator
+# can't fabricate violations. Real validators would carry actual
+# property shapes here.
+[] a sh:NodeShape .

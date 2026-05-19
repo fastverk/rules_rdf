@@ -49,12 +49,28 @@ stardoc(
     deps = ["//validate:defs"],
 )
 
+stardoc(
+    name = "reason_doc",
+    out = "reason.md.generated",
+    input = "//reason:defs.bzl",
+    deps = ["//reason:defs"],
+)
+
+stardoc(
+    name = "transform_doc",
+    out = "transform.md.generated",
+    input = "//transform:defs.bzl",
+    deps = ["//transform:defs"],
+)
+
 diff_test(name = "providers_doc_up_to_date", file1 = "providers.md", file2 = ":providers_doc")
 diff_test(name = "toolchains_doc_up_to_date", file1 = "toolchains.md", file2 = ":toolchains_doc")
 diff_test(name = "dataset_doc_up_to_date", file1 = "dataset.md", file2 = ":dataset_doc")
 diff_test(name = "contract_test_doc_up_to_date", file1 = "contract_test.md", file2 = ":contract_test_doc")
 diff_test(name = "sparql_doc_up_to_date", file1 = "sparql.md", file2 = ":sparql_doc")
 diff_test(name = "validate_doc_up_to_date", file1 = "validate.md", file2 = ":validate_doc")
+diff_test(name = "reason_doc_up_to_date", file1 = "reason.md", file2 = ":reason_doc")
+diff_test(name = "transform_doc_up_to_date", file1 = "transform.md", file2 = ":transform_doc")
 
 write_source_files(
     name = "update",
@@ -65,5 +81,7 @@ write_source_files(
         "contract_test.md": ":contract_test_doc",
         "sparql.md": ":sparql_doc",
         "validate.md": ":validate_doc",
+        "reason.md": ":reason_doc",
+        "transform.md": ":transform_doc",
     },
 )
