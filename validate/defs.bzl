@@ -26,6 +26,7 @@ shapes file is assumed Turtle-encoded SHACL).
 """
 
 load("//rdf:providers.bzl", "RdfDatasetInfo")
+load("//rdf:merge.bzl", "SERIALIZER_TOOLCHAIN", "merged_dataset_input")
 
 _VALIDATOR = "@rules_rdf//rdf:rdf_validator_toolchain_type"
 
@@ -33,26 +34,13 @@ def _rdf_validate_test_impl(ctx):
     validator_info = ctx.toolchains[_VALIDATOR].rdf_validator_info
     validator = validator_info.binary
     dataset_info = ctx.attr.dataset[RdfDatasetInfo]
-    dataset_files = dataset_info.files.to_list()
-
-    if len(dataset_files) == 1:
-        concat_input = dataset_files[0]
-    else:
-        concat_input = ctx.actions.declare_file(ctx.label.name + ".concat.rdf")
-        sorted_files = sorted(dataset_files, key = lambda f: f.short_path)
-        ctx.actions.run_shell(
-            outputs = [concat_input],
-            inputs = sorted_files,
-            command = "cat {} > {}".format(
-                " ".join([f.path for f in sorted_files]),
-                concat_input.path,
-            ),
-            mnemonic = "RdfConcat",
-            progress_message = "concat %d RDF files for %s" % (
-                len(sorted_files),
-                ctx.label,
-            ),
-        )
+    # Validate the full linked-graph closure (own files + deps), merged
+    # blank-node-safely via the serializer toolchain (not byte-concat).
+    concat_input, dataset_runfiles = merged_dataset_input(
+        ctx,
+        dataset_info,
+        ctx.label.name + ".merged.rdf",
+    )
 
     runner = ctx.actions.declare_file(ctx.label.name + ".sh")
     ctx.actions.write(
@@ -97,7 +85,8 @@ exec "$VALIDATOR" \\
         ),
     )
 
-    runfiles = ctx.runfiles(files = [validator, concat_input, ctx.file.shapes])
+    runfiles = ctx.runfiles(files = [validator, ctx.file.shapes])
+    runfiles = runfiles.merge(dataset_runfiles)
     runfiles = runfiles.merge(validator_info.runfiles)
     return [DefaultInfo(executable = runner, runfiles = runfiles)]
 
@@ -121,6 +110,6 @@ rdf_validate_test = rule(
             doc = "Minimum severity that fails the build.",
         ),
     },
-    toolchains = [_VALIDATOR],
+    toolchains = [_VALIDATOR, SERIALIZER_TOOLCHAIN],
     doc = "Validate an RDF dataset against a SHACL shapes graph.",
 )
