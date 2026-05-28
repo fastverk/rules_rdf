@@ -1,0 +1,3 @@
+@prefix ex: <http://example.org/> .
+
+ex:object ex:linkedPredicate ex:linkedObject .

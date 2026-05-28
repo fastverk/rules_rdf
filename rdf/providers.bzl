@@ -16,6 +16,10 @@ SparqlEngineToolchainInfo = provider(
         "binary": "File: an executable that runs SPARQL queries " +
                   "per the rules_rdf plugin contract.",
         "runfiles": "runfiles: the plugin binary's runfiles bundle.",
+        "files_to_run": "FilesToRunProvider: pass in an action's " +
+                        "`tools=` so Bazel materializes the plugin's " +
+                        "runfiles tree (java_binary / py_binary plugins " +
+                        "fail to locate runfiles otherwise).",
     },
 )
 
@@ -26,6 +30,8 @@ RdfValidatorToolchainInfo = provider(
         "binary": "File: an executable that validates an RDF " +
                   "dataset against a shapes graph per the contract.",
         "runfiles": "runfiles: the plugin binary's runfiles bundle.",
+        "files_to_run": "FilesToRunProvider: pass in an action's " +
+                        "`tools=` to materialize the plugin's runfiles tree.",
     },
 )
 
@@ -36,6 +42,8 @@ RdfSerializerToolchainInfo = provider(
                   "serializations (Turtle / N-Triples / N-Quads / " +
                   "JSON-LD / RDF/XML / TriG).",
         "runfiles": "runfiles: the plugin binary's runfiles bundle.",
+        "files_to_run": "FilesToRunProvider: pass in an action's " +
+                        "`tools=` to materialize the plugin's runfiles tree.",
     },
 )
 
@@ -45,15 +53,28 @@ RdfReasonerToolchainInfo = provider(
         "binary": "File: an executable that runs RDFS / OWL / " +
                   "custom-rule inference and emits derived triples.",
         "runfiles": "runfiles: the plugin binary's runfiles bundle.",
+        "files_to_run": "FilesToRunProvider: pass in an action's " +
+                        "`tools=` to materialize the plugin's runfiles tree.",
     },
 )
 
 RdfDatasetInfo = provider(
     doc = "A declared RDF dataset.",
     fields = {
-        "files": "depset[File]: source files in the dataset.",
+        "files": "depset[File]: this dataset's own source files " +
+                 "(excludes `deps`).",
+        "transitive_files": "depset[File]: the full graph closure — " +
+                            "this dataset's files plus the transitive " +
+                            "closure of every `deps` dataset. Consumers " +
+                            "needing all linked triples (sparql_query, " +
+                            "rdf_reason, rdf_validate) operate over this; " +
+                            "the subclass/import closure of a grounding " +
+                            "ontology (schema.org + SKOS + DC + modules) " +
+                            "is assembled here.",
         "in_format": "str: serialization of the dataset files. " +
                      "One of turtle, ntriples, nquads, trig, " +
-                     "jsonld, rdfxml.",
+                     "jsonld, rdfxml. The whole closure must share " +
+                     "this format (normalize a differing dep with " +
+                     "rdf_transform first).",
     },
 )

@@ -39,6 +39,7 @@ def _make_info(info_cls, ctx):
     return info_cls(
         binary = ctx.executable.binary,
         runfiles = ctx.attr.binary[DefaultInfo].default_runfiles,
+        files_to_run = ctx.attr.binary[DefaultInfo].files_to_run,
     )
 
 def _sparql_engine_impl(ctx):

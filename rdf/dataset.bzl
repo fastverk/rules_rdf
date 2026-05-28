@@ -38,10 +38,18 @@ RDF_FORMATS = [
 ]
 
 def _rdf_dataset_impl(ctx):
+    own = depset(ctx.files.srcs)
+    # Transitive closure: own files + every dep's closure. Models a
+    # grounding ontology's linked vocabularies / module graph (e.g.
+    # schema.org core → pending/auto/bib modules → SKOS, DC). Consumers
+    # that reason or query over all linked triples use `transitive_files`.
+    dep_closures = [d[RdfDatasetInfo].transitive_files for d in ctx.attr.deps]
+    transitive = depset(ctx.files.srcs, transitive = dep_closures)
     return [
-        DefaultInfo(files = depset(ctx.files.srcs)),
+        DefaultInfo(files = transitive),
         RdfDatasetInfo(
-            files = depset(ctx.files.srcs),
+            files = own,
+            transitive_files = transitive,
             in_format = ctx.attr.in_format,
         ),
     ]
@@ -61,6 +69,14 @@ rdf_dataset = rule(
                   "order by consuming rules before being piped to the " +
                   "plugin's stdin.",
         ),
+        "deps": attr.label_list(
+            providers = [RdfDatasetInfo],
+            doc = "Other `rdf_dataset`s this graph links to (imported " +
+                  "ontologies, vocabulary modules). Their files are folded " +
+                  "into this dataset's `transitive_files` closure, so " +
+                  "reasoning/query over the linked vocabularies resolves. " +
+                  "Deps should share `in_format` (normalize otherwise).",
+        ),
         "in_format": attr.string(
             default = "turtle",
             values = RDF_FORMATS,
@@ -70,5 +86,5 @@ rdf_dataset = rule(
         ),
     },
     provides = [RdfDatasetInfo],
-    doc = "A labeled collection of RDF source files.",
+    doc = "A labeled collection of RDF source files + linked-graph deps.",
 )

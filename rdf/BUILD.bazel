@@ -1,6 +1,17 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@rules_python//python:defs.bzl", "py_binary")
 
 package(default_visibility = ["//visibility:public"])
+
+# Namespace/import extractor used by the rdf_namespace_aspect. Stdlib
+# only; consumers register their own python toolchain (same posture as
+# the rdf_plugin_contract_test driver).
+py_binary(
+    name = "ns_tool",
+    srcs = ["ns_tool.py"],
+    main = "ns_tool.py",
+    visibility = ["//visibility:public"],
+)
 
 # One toolchain type per RDF operation. Plugins implement and
 # register the binary backing each type independently — a consumer
@@ -34,4 +45,36 @@ bzl_library(
     srcs = ["contract_test.bzl"],
 )
 
-exports_files(["plugin_contract.md"])
+bzl_library(
+    name = "repositories",
+    srcs = ["repositories.bzl"],
+)
+
+bzl_library(
+    name = "extensions",
+    srcs = ["extensions.bzl"],
+    deps = [":repositories"],
+)
+
+bzl_library(
+    name = "aspects",
+    srcs = ["aspects.bzl"],
+    deps = [":providers"],
+)
+
+bzl_library(
+    name = "namespace",
+    srcs = ["namespace.bzl"],
+    deps = [
+        ":aspects",
+        ":providers",
+    ],
+)
+
+exports_files([
+    "plugin_contract.md",
+    "repositories.bzl",
+    "extensions.bzl",
+    "aspects.bzl",
+    "namespace.bzl",
+])

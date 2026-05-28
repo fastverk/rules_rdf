@@ -8,8 +8,9 @@ load(
     "rdf_validator_toolchain",
     "sparql_engine_toolchain",
 )
+load("@rules_rdf//rdf:namespace.bzl", "rdf_namespace_manifest")
 load("@rules_rdf//reason:defs.bzl", "rdf_reason")
-load("@rules_rdf//sparql:defs.bzl", "sparql_query_test")
+load("@rules_rdf//sparql:defs.bzl", "sparql_query", "sparql_query_test")
 load("@rules_rdf//transform:defs.bzl", "rdf_transform")
 load("@rules_rdf//validate:defs.bzl", "rdf_validate_test")
 
@@ -61,12 +62,59 @@ rdf_dataset(
     in_format = "turtle",
 )
 
+# A linked vocabulary + a dataset that deps on it. `composed`'s
+# transitive_files closure = sample.ttl + linked.ttl, so every consuming
+# rule (query/reason/validate/transform) sees both graphs — the
+# import-closure model used to ground schema.org + SKOS + DC.
+rdf_dataset(
+    name = "linked",
+    srcs = ["linked.ttl"],
+    in_format = "turtle",
+)
+
+rdf_dataset(
+    name = "composed",
+    srcs = ["sample.ttl"],
+    in_format = "turtle",
+    deps = [":linked"],
+)
+
 # -- End-to-end smokes ---------------------------------------------------------
 
 sparql_query_test(
     name = "zero_row_gate_smoke",
     dataset = ":sample",
     query = "query.rq",
+)
+
+# Exercises the transitive closure through a consumer: the no-op engine
+# receives both sample.ttl and linked.ttl.
+sparql_query_test(
+    name = "closure_smoke",
+    dataset = ":composed",
+    query = "query.rq",
+)
+
+# Import-closure aspect: parent owl:imports child; with child in deps the
+# closure is complete, so the strict manifest builds. Drop the dep and
+# `strict = True` would fail the build (the completeness gate).
+rdf_dataset(
+    name = "ont_child",
+    srcs = ["ont_child.ttl"],
+    in_format = "turtle",
+)
+
+rdf_dataset(
+    name = "ont_parent",
+    srcs = ["ont_parent.ttl"],
+    in_format = "turtle",
+    deps = [":ont_child"],
+)
+
+rdf_namespace_manifest(
+    name = "closure_manifest",
+    dataset = ":ont_parent",
+    strict = True,
 )
 
 rdf_validate_test(
@@ -79,6 +127,15 @@ rdf_transform(
     name = "transform_smoke",
     dataset = ":sample",
     out_format = "ntriples",
+)
+
+# Producer: emit SELECT results as a build artifact (vs the zero-row
+# gate). Turns a reasoned graph into downstream-consumable data.
+sparql_query(
+    name = "select_smoke",
+    dataset = ":sample",
+    out_format = "tsv",
+    query = "query.rq",
 )
 
 rdf_reason(
