@@ -22,10 +22,10 @@ should name files to sort accordingly.
 <pre>
 load("@rules_rdf//rdf:dataset.bzl", "rdf_dataset")
 
-rdf_dataset(<a href="#rdf_dataset-name">name</a>, <a href="#rdf_dataset-srcs">srcs</a>, <a href="#rdf_dataset-in_format">in_format</a>)
+rdf_dataset(<a href="#rdf_dataset-name">name</a>, <a href="#rdf_dataset-deps">deps</a>, <a href="#rdf_dataset-srcs">srcs</a>, <a href="#rdf_dataset-in_format">in_format</a>)
 </pre>
 
-A labeled collection of RDF source files.
+A labeled collection of RDF source files + linked-graph deps.
 
 **ATTRIBUTES**
 
@@ -33,6 +33,7 @@ A labeled collection of RDF source files.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="rdf_dataset-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="rdf_dataset-deps"></a>deps |  Other `rdf_dataset`s this graph links to (imported ontologies, vocabulary modules). Their files are folded into this dataset's `transitive_files` closure, so reasoning/query over the linked vocabularies resolves. Deps should share `in_format` (normalize otherwise).   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="rdf_dataset-srcs"></a>srcs |  RDF source files. Concatenated in lexicographic order by consuming rules before being piped to the plugin's stdin.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | required |  |
 | <a id="rdf_dataset-in_format"></a>in_format |  Serialization of every file in `srcs`. Mixed-format datasets aren't supported in v0.1 — use rdf_transform first.   | String | optional |  `"turtle"`  |
 

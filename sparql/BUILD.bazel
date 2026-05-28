@@ -5,5 +5,5 @@ package(default_visibility = ["//visibility:public"])
 bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
-    deps = ["//rdf:providers"],
+    deps = ["//rdf:merge", "//rdf:providers"],
 )

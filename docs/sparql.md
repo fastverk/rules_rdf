@@ -26,6 +26,29 @@ sparql_query_test(
 )
 ```
 
+<a id="sparql_query"></a>
+
+## sparql_query
+
+<pre>
+load("@rules_rdf//sparql:defs.bzl", "sparql_query")
+
+sparql_query(<a href="#sparql_query-name">name</a>, <a href="#sparql_query-dataset">dataset</a>, <a href="#sparql_query-out_format">out_format</a>, <a href="#sparql_query-query">query</a>)
+</pre>
+
+Run a SPARQL query and emit the results as a build artifact (the producer counterpart to sparql_query_test's gate). Turns a reasoned graph into queryable, downstream-consumable data — e.g. grounding tuples for training-data generation.
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="sparql_query-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="sparql_query-dataset"></a>dataset |  The `rdf_dataset` (closure) to query.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="sparql_query-out_format"></a>out_format |  Result serialization. Tabular (tsv/csv/json/xml) for SELECT/ASK; RDF (turtle/ntriples/…) for CONSTRUCT/DESCRIBE (also yields an rdf_dataset).   | String | required |  |
+| <a id="sparql_query-query"></a>query |  The SPARQL query file (SELECT/ASK → tabular; CONSTRUCT/DESCRIBE → graph).   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+
+
 <a id="sparql_query_test"></a>
 
 ## sparql_query_test
