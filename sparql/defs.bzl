@@ -126,14 +126,114 @@ sparql_query_test = rule(
           "result set is non-empty. The zero-row gate idiom.",
 )
 
+def _sparql_query_smoke_test_impl(ctx):
+    engine_info = ctx.toolchains[_SPARQL_ENGINE].sparql_engine_info
+    engine = engine_info.binary
+    dataset_info = ctx.attr.dataset[RdfDatasetInfo]
+    dataset_file, dataset_runfiles = merged_dataset_input(
+        ctx,
+        dataset_info,
+        ctx.label.name + ".merged.rdf",
+    )
+
+    # Run every query against the dataset; pass iff each parses + executes
+    # (exit 0). Unlike sparql_query_test this asserts nothing about row
+    # counts — it's the "do my queries still parse/execute?" smoke gate.
+    query_resolves = "\n".join([
+        'run_query "{sp}"'.format(sp = q.short_path)
+        for q in ctx.files.queries
+    ])
+    runner = ctx.actions.declare_file(ctx.label.name + ".sh")
+    ctx.actions.write(
+        output = runner,
+        is_executable = True,
+        content = """#!/usr/bin/env bash
+set -uo pipefail
+RUNFILES_DIR="${{RUNFILES_DIR:-$0.runfiles}}"
+WS_NAME="{ws}"
+
+resolve() {{
+    local sp="$1"
+    if [[ "$sp" == ../* ]]; then
+        printf '%s' "$RUNFILES_DIR/${{sp#../}}"
+    else
+        printf '%s' "$RUNFILES_DIR/$WS_NAME/$sp"
+    fi
+}}
+
+ENGINE="$(resolve "{engine_sp}")"
+DATASET="$(resolve "{dataset_sp}")"
+FAILED=0
+
+run_query() {{
+    local QSP="$1"
+    local Q
+    Q="$(resolve "$QSP")"
+    if ! "$ENGINE" \\
+        --rule-name="{rule_name}" \\
+        --in-format="{in_format}" \\
+        --query="$Q" \\
+        --out-format="tsv" \\
+        < "$DATASET" > /dev/null; then
+        echo "sparql_query_smoke: FAILED to parse/execute $QSP" >&2
+        FAILED=1
+    fi
+}}
+
+{query_resolves}
+
+if [[ "$FAILED" -ne 0 ]]; then
+    echo "sparql_query_smoke: one or more queries failed to parse/execute" >&2
+    exit 1
+fi
+""".format(
+            ws = ctx.workspace_name,
+            engine_sp = engine.short_path,
+            dataset_sp = dataset_file.short_path,
+            rule_name = ctx.label.name,
+            in_format = dataset_info.in_format,
+            query_resolves = query_resolves,
+        ),
+    )
+
+    runfiles = ctx.runfiles(files = [engine] + ctx.files.queries)
+    runfiles = runfiles.merge(dataset_runfiles)
+    runfiles = runfiles.merge(engine_info.runfiles)
+    return [DefaultInfo(executable = runner, runfiles = runfiles)]
+
+sparql_query_smoke_test = rule(
+    implementation = _sparql_query_smoke_test_impl,
+    test = True,
+    attrs = {
+        "dataset": attr.label(
+            providers = [RdfDatasetInfo],
+            mandatory = True,
+            doc = "An `rdf_dataset` the queries run against.",
+        ),
+        "queries": attr.label_list(
+            allow_files = [".rq", ".sparql"],
+            mandatory = True,
+            doc = "SPARQL query files. The test passes iff every one " +
+                  "parses and executes without error (no row-count " +
+                  "assertion — that's `sparql_query_test`).",
+        ),
+    },
+    toolchains = [_SPARQL_ENGINE, SERIALIZER_TOOLCHAIN],
+    doc = "Assert that a set of SPARQL queries all parse + execute " +
+          "against a dataset. The query-smoke gate idiom — catches " +
+          "syntax errors and reference rot after schema changes.",
+)
+
 def _sparql_query_impl(ctx):
     engine_info = ctx.toolchains[_SPARQL_ENGINE].sparql_engine_info
     engine = engine_info.binary
     dataset_info = ctx.attr.dataset[RdfDatasetInfo]
-    # Query the full linked-graph closure (own files + deps).
-    dataset_files = sorted(
-        dataset_info.transitive_files.to_list(),
-        key = lambda f: f.short_path,
+    # Query the full linked-graph closure (own files + deps), merged
+    # blank-node-safely via the serializer toolchain (not byte-concat).
+    merged, _merged_runfiles = merged_dataset_input(
+        ctx,
+        dataset_info,
+        ctx.label.name + ".merged.rdf",
     )
 
     is_graph = ctx.attr.out_format in _GRAPH_OUT
@@ -141,25 +241,25 @@ def _sparql_query_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + "." + ext)
 
     cmd = (
-        "cat {datasets} | \"{engine}\" " +
+        "\"{engine}\" " +
         "--rule-name=\"{rule_name}\" " +
         "--in-format=\"{in_format}\" " +
         "--query=\"{query}\" " +
         "--out-format=\"{out_format}\" " +
-        "> \"{out}\""
+        "< \"{merged}\" > \"{out}\""
     ).format(
-        datasets = " ".join([f.path for f in dataset_files]),
         engine = engine.path,
         rule_name = ctx.label.name,
         in_format = dataset_info.in_format,
         query = ctx.file.query.path,
         out_format = ctx.attr.out_format,
+        merged = merged.path,
         out = out.path,
     )
 
     ctx.actions.run_shell(
         outputs = [out],
-        inputs = depset(dataset_files + [ctx.file.query]),
+        inputs = depset([merged, ctx.file.query]),
         tools = [engine_info.files_to_run],
         command = cmd,
         mnemonic = "SparqlQuery",
@@ -199,7 +299,7 @@ sparql_query = rule(
                   "CONSTRUCT/DESCRIBE (also yields an rdf_dataset).",
         ),
     },
-    toolchains = [_SPARQL_ENGINE],
+    toolchains = [_SPARQL_ENGINE, SERIALIZER_TOOLCHAIN],
     doc = "Run a SPARQL query and emit the results as a build artifact " +
           "(the producer counterpart to sparql_query_test's gate). Turns " +
           "a reasoned graph into queryable, downstream-consumable data " +

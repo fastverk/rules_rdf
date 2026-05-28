@@ -49,6 +49,28 @@ Run a SPARQL query and emit the results as a build artifact (the producer counte
 | <a id="sparql_query-query"></a>query |  The SPARQL query file (SELECT/ASK → tabular; CONSTRUCT/DESCRIBE → graph).   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 
 
+<a id="sparql_query_smoke_test"></a>
+
+## sparql_query_smoke_test
+
+<pre>
+load("@rules_rdf//sparql:defs.bzl", "sparql_query_smoke_test")
+
+sparql_query_smoke_test(<a href="#sparql_query_smoke_test-name">name</a>, <a href="#sparql_query_smoke_test-dataset">dataset</a>, <a href="#sparql_query_smoke_test-queries">queries</a>)
+</pre>
+
+Assert that a set of SPARQL queries all parse + execute against a dataset. The query-smoke gate idiom — catches syntax errors and reference rot after schema changes.
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="sparql_query_smoke_test-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="sparql_query_smoke_test-dataset"></a>dataset |  An `rdf_dataset` the queries run against.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="sparql_query_smoke_test-queries"></a>queries |  SPARQL query files. The test passes iff every one parses and executes without error (no row-count assertion — that's `sparql_query_test`).   | <a href="https://bazel.build/concepts/labels">List of labels</a> | required |  |
+
+
 <a id="sparql_query_test"></a>
 
 ## sparql_query_test
