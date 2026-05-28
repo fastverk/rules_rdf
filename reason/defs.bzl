@@ -36,6 +36,7 @@ supported; the abstract layer only validates that `profile =
 """
 
 load("//rdf:providers.bzl", "RdfDatasetInfo")
+load("//rdf:merge.bzl", "SERIALIZER_TOOLCHAIN", "merged_dataset_input")
 
 _REASONER = "@rules_rdf//rdf:rdf_reasoner_toolchain_type"
 
@@ -54,15 +55,19 @@ def _rdf_reason_impl(ctx):
     reasoner_info = ctx.toolchains[_REASONER].rdf_reasoner_info
     reasoner = reasoner_info.binary
     dataset_info = ctx.attr.base[RdfDatasetInfo]
-    dataset_files = sorted(
-        dataset_info.files.to_list(),
-        key = lambda f: f.short_path,
+    # Reason over the whole closure (own files + linked vocabularies) so
+    # cross-ontology subclass/subproperty chains resolve — e.g. a
+    # schema.org type's superclass that lives in an imported module.
+    # Merge the closure blank-node-safely via the serializer toolchain
+    # (not cat) into one canonical graph before piping to the reasoner.
+    merged, _merged_runfiles = merged_dataset_input(
+        ctx,
+        dataset_info,
+        ctx.label.name + ".merged.rdf",
     )
 
-    # Concatenate base graph files in lexicographic order, then pipe
-    # to the reasoner.
     out = ctx.actions.declare_file(ctx.label.name + ".inferred.ttl")
-    inputs = list(dataset_files)
+    inputs = [merged]
     rules_flag = ""
     if ctx.file.rules != None:
         rules_flag = "--rules={} ".format(ctx.file.rules.path)
@@ -71,30 +76,27 @@ def _rdf_reason_impl(ctx):
     include_base_flag = "--include-base " if ctx.attr.include_base else ""
 
     cmd = (
-        "cat {datasets} | \"{reasoner}\" " +
+        "\"{reasoner}\" " +
         "--rule-name=\"{rule_name}\" " +
         "--in-format=\"{in_format}\" " +
         "--profile=\"{profile}\" " +
         "{rules_flag}{include_base_flag}" +
-        "> \"{out}\""
+        "< \"{merged}\" > \"{out}\""
     ).format(
-        datasets = " ".join([f.path for f in dataset_files]),
         reasoner = reasoner.path,
         rule_name = ctx.label.name,
         in_format = dataset_info.in_format,
         profile = ctx.attr.profile,
         rules_flag = rules_flag,
         include_base_flag = include_base_flag,
+        merged = merged.path,
         out = out.path,
     )
 
     ctx.actions.run_shell(
         outputs = [out],
         inputs = depset(inputs),
-        tools = depset(transitive = [
-            depset([reasoner]),
-            reasoner_info.runfiles.files,
-        ]),
+        tools = [reasoner_info.files_to_run],
         command = cmd,
         mnemonic = "RdfReason",
         progress_message = "rdf_reason %s (profile=%s)" % (ctx.label, ctx.attr.profile),
@@ -106,6 +108,7 @@ def _rdf_reason_impl(ctx):
         DefaultInfo(files = depset([out])),
         RdfDatasetInfo(
             files = depset([out]),
+            transitive_files = depset([out]),
             in_format = "turtle",
         ),
     ]
@@ -134,7 +137,7 @@ rdf_reason = rule(
                   "only the derived (default).",
         ),
     },
-    toolchains = [_REASONER],
+    toolchains = [_REASONER, SERIALIZER_TOOLCHAIN],
     provides = [RdfDatasetInfo],
     doc = "Run inference over an RDF dataset; emit the " +
           "derived-triples graph (Turtle).",

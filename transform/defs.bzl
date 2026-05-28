@@ -45,36 +45,38 @@ def _rdf_transform_impl(ctx):
     serializer_info = ctx.toolchains[_SERIALIZER].rdf_serializer_info
     serializer = serializer_info.binary
     dataset_info = ctx.attr.dataset[RdfDatasetInfo]
+    # Convert the whole linked-graph closure (own files + deps).
     dataset_files = sorted(
-        dataset_info.files.to_list(),
+        dataset_info.transitive_files.to_list(),
         key = lambda f: f.short_path,
     )
 
     ext = _OUT_EXTENSIONS[ctx.attr.out_format]
     out = ctx.actions.declare_file(ctx.label.name + "." + ext)
 
+    # Pass each file as a separate --input-file so the serializer parses
+    # them independently (blank-node-scoped union) — never byte-concatenate
+    # (cat collides repeated _:bN labels across files).
     cmd = (
-        "cat {datasets} | \"{serializer}\" " +
+        "\"{serializer}\" " +
         "--rule-name=\"{rule_name}\" " +
         "--in-format=\"{in_format}\" " +
         "--out-format=\"{out_format}\" " +
+        "{inputs} " +
         "> \"{out}\""
     ).format(
-        datasets = " ".join([f.path for f in dataset_files]),
         serializer = serializer.path,
         rule_name = ctx.label.name,
         in_format = dataset_info.in_format,
         out_format = ctx.attr.out_format,
+        inputs = " ".join(['--input-file="%s"' % f.path for f in dataset_files]),
         out = out.path,
     )
 
     ctx.actions.run_shell(
         outputs = [out],
         inputs = depset(dataset_files),
-        tools = depset(transitive = [
-            depset([serializer]),
-            serializer_info.runfiles.files,
-        ]),
+        tools = [serializer_info.files_to_run],
         command = cmd,
         mnemonic = "RdfTransform",
         progress_message = "rdf_transform %s → %s" % (ctx.label, ctx.attr.out_format),
@@ -84,6 +86,7 @@ def _rdf_transform_impl(ctx):
         DefaultInfo(files = depset([out])),
         RdfDatasetInfo(
             files = depset([out]),
+            transitive_files = depset([out]),
             in_format = ctx.attr.out_format,
         ),
     ]
